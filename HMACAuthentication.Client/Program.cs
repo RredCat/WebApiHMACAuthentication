@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -21,16 +19,16 @@ namespace HMACAuthentication.Client
         {
 
             Console.WriteLine("Calling the back-end API");
+            //http://localhost:60806/api/values
+            string apiBaseAddress = "http://localhost:56349/";
 
-            string apiBaseAddress = "http://localhost:43326/";
+            var customDelegatingHandler = new CustomDelegatingHandler();
 
-            CustomDelegatingHandler customDelegatingHandler = new CustomDelegatingHandler();
+            var client = HttpClientFactory.Create(customDelegatingHandler);
 
-            HttpClient client = HttpClientFactory.Create(customDelegatingHandler);
+            // var order = new Order { OrderID = 10248, CustomerName = "Taiseer Joudeh", ShipperCity = "Amman", IsShipped = true };
 
-            var order = new Order { OrderID = 10248, CustomerName = "Taiseer Joudeh", ShipperCity = "Amman", IsShipped = true };
-
-            HttpResponseMessage response = await client.PostAsJsonAsync(apiBaseAddress + "api/orders", order);
+            HttpResponseMessage response = await client.GetAsync(apiBaseAddress + "api/values");
 
             if (response.IsSuccessStatusCode)
             {
@@ -52,9 +50,8 @@ namespace HMACAuthentication.Client
             private string APPId = "4d53bce03ec34c0a911182d4c228ee6c";
             private string APIKey = "A93reRTUJHsCuQSHR+L3GxqOJyDmQpCgps102ciuabc=";
 
-            protected async override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
-
                 HttpResponseMessage response = null;
                 string requestContentBase64String = string.Empty;
 
@@ -81,22 +78,23 @@ namespace HMACAuthentication.Client
                 }
 
                 //Creating the raw signature string
-                string signatureRawData = String.Format("{0}{1}{2}{3}{4}{5}", APPId, requestHttpMethod, requestUri, requestTimeStamp, nonce, requestContentBase64String);
+                string signatureRawData =
+                    $"{APPId}{requestHttpMethod}{requestUri}{requestTimeStamp}{nonce}{requestContentBase64String}";
 
                 var secretKeyByteArray = Convert.FromBase64String(APIKey);
 
                 byte[] signature = Encoding.UTF8.GetBytes(signatureRawData);
 
-                using (HMACSHA256 hmac = new HMACSHA256(secretKeyByteArray))
+                using (var hmac = new HMACSHA256(secretKeyByteArray))
                 {
                     byte[] signatureBytes = hmac.ComputeHash(signature);
                     string requestSignatureBase64String = Convert.ToBase64String(signatureBytes);
                     //Setting the values in the Authorization header using custom scheme (amx)
-                    request.Headers.Authorization = new AuthenticationHeaderValue("amx", string.Format("{0}:{1}:{2}:{3}", APPId, requestSignatureBase64String, nonce, requestTimeStamp));
+                    request.Headers.Authorization = new AuthenticationHeaderValue("amx",
+                        $"{APPId}:{requestSignatureBase64String}:{nonce}:{requestTimeStamp}");
                 }
 
                 response = await base.SendAsync(request, cancellationToken);
-
                 return response;
             }
         }
