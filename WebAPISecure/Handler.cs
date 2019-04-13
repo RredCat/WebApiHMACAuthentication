@@ -14,6 +14,7 @@ using System.Web;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.AspNetCore.Http.Internal;
 
 namespace WebAPISecure
 {
@@ -90,7 +91,9 @@ namespace WebAPISecure
 
             if (IsReplayRequest(nonce, requestTimeStamp)) return false;
 
+            request.EnableRewind();
             byte[] hash = ComputeHash(request.Body);
+            request.Body.Position = 0;
 
             if (hash != null)
             {

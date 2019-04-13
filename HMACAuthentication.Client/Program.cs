@@ -1,44 +1,53 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 
 namespace HMACAuthentication.Client
 {
     class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
-            RunAsync().Wait();
-        }
-
-        static async Task RunAsync()
-        {
-
             Console.WriteLine("Calling the back-end API");
             //http://localhost:60806/api/values
-            string apiBaseAddress = "http://localhost:56349/";
+            var url = "http://localhost:56349/" + "api/values";
 
             var customDelegatingHandler = new CustomDelegatingHandler();
 
             var client = HttpClientFactory.Create(customDelegatingHandler);
 
-            // var order = new Order { OrderID = 10248, CustomerName = "Taiseer Joudeh", ShipperCity = "Amman", IsShipped = true };
+            HttpResponseMessage getResponse = await client.GetAsync(url);
 
-            HttpResponseMessage response = await client.GetAsync(apiBaseAddress + "api/values");
-
-            if (response.IsSuccessStatusCode)
+            if (getResponse.IsSuccessStatusCode)
             {
-                string responseString = await response.Content.ReadAsStringAsync();
+                string responseString = await getResponse.Content.ReadAsStringAsync();
                 Console.WriteLine(responseString);
-                Console.WriteLine("HTTP Status: {0}, Reason {1}. Press ENTER to exit", response.StatusCode, response.ReasonPhrase);
+                Console.WriteLine("GET - HTTP Status: {0}, Reason {1}", getResponse.StatusCode, getResponse.ReasonPhrase);
             }
             else
             {
-                Console.WriteLine("Failed to call the API. HTTP Status: {0}, Reason {1}", response.StatusCode, response.ReasonPhrase);
+                Console.WriteLine("Failed to call the API. HTTP Status: {0}, Reason {1}", getResponse.StatusCode, getResponse.ReasonPhrase);
+            }
+
+            var order = new Order { OrderID = 10248, CustomerName = "Taiseer Joudeh", ShipperCity = "Amman", IsShipped = true };
+            string json = JsonConvert.SerializeObject(order);
+            var content = new StringContent(json, Encoding.UTF8, "application/json");
+            HttpResponseMessage postResponse = await client.PostAsync(url, content);
+
+            if (postResponse.IsSuccessStatusCode)
+            {
+                string responseString = await postResponse.Content.ReadAsStringAsync();
+                Console.WriteLine("POST - HTTP Status: {0}, Reason {1}. Press ENTER to exit", postResponse.StatusCode, postResponse.ReasonPhrase);
+            }
+            else
+            {
+                Console.WriteLine("Failed to call the API. HTTP Status: {0}, Reason {1}", postResponse.StatusCode, postResponse.ReasonPhrase);
             }
 
             Console.ReadLine();
@@ -55,7 +64,7 @@ namespace HMACAuthentication.Client
                 HttpResponseMessage response = null;
                 string requestContentBase64String = string.Empty;
 
-                string requestUri = System.Web.HttpUtility.UrlEncode(request.RequestUri.AbsoluteUri.ToLower());
+                string requestUri = HttpUtility.UrlEncode(request.RequestUri.AbsoluteUri.ToLower());
 
                 string requestHttpMethod = request.Method.Method;
 
